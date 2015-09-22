@@ -7,11 +7,15 @@ import (
 	"io"
 	"net"
 	"sync"
+	"syscall"
 	"time"
 )
 
 // Maximum number of TCP queries before we close the socket.
 const maxTCPQueries = 128
+
+// Socket flag for SO_REUSEPORT
+const reusePortFlag = 0x0F
 
 // Handler is implemented by any value that implements ServeDNS.
 type Handler interface {
@@ -259,6 +263,8 @@ type Server struct {
 	WriteTimeout time.Duration
 	// TCP idle timeout for multiple queries, if nil, defaults to 8 * time.Second (RFC 5966).
 	IdleTimeout func() time.Duration
+	// Whether or not to set the reuse port flag when opening sockets
+	ReusePort bool
 	// Secret(s) for Tsig map[<zonename>]<base64 secret>.
 	TsigSecret map[string]string
 	// Unsafe instructs the server to disregard any sanity checks and directly hand the message to
@@ -308,6 +314,15 @@ func (srv *Server) ListenAndServe() error {
 		if e != nil {
 			return e
 		}
+		if ReusePort {
+			file, e := l.File()
+			if e != nil {
+				return e
+			}
+			if e := syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, reusePortFlag, 1); e != nil {
+				return e
+			}
+		}
 		srv.Listener = l
 		srv.lock.Unlock()
 		return srv.serveTCP(l)
@@ -322,6 +337,15 @@ func (srv *Server) ListenAndServe() error {
 		}
 		if e := setUDPSocketOptions(l); e != nil {
 			return e
+		}
+		if ReusePort {
+			file, e := l.File()
+			if e != nil {
+				return e
+			}
+			if e := syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, reusePortFlag, 1); e != nil {
+				return e
+			}
 		}
 		srv.PacketConn = l
 		srv.lock.Unlock()
