@@ -314,12 +314,12 @@ func (srv *Server) ListenAndServe() error {
 		if e != nil {
 			return e
 		}
-		if ReusePort {
+		if srv.ReusePort {
 			file, e := l.File()
 			if e != nil {
 				return e
 			}
-			if e := syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, reusePortFlag, 1); e != nil {
+			if e := syscall.SetsockoptInt(int(file.Fd()), syscall.SOL_SOCKET, reusePortFlag, 1); e != nil {
 				return e
 			}
 		}
@@ -338,12 +338,12 @@ func (srv *Server) ListenAndServe() error {
 		if e := setUDPSocketOptions(l); e != nil {
 			return e
 		}
-		if ReusePort {
+		if srv.ReusePort {
 			file, e := l.File()
 			if e != nil {
 				return e
 			}
-			if e := syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, reusePortFlag, 1); e != nil {
+			if e := syscall.SetsockoptInt(int(file.Fd()), syscall.SOL_SOCKET, reusePortFlag, 1); e != nil {
 				return e
 			}
 		}
