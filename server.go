@@ -3,11 +3,11 @@
 package dns
 
 import (
+	"bragr/go_reuseport"
 	"bytes"
 	"io"
 	"net"
 	"sync"
-	"syscall"
 	"time"
 )
 
@@ -306,46 +306,17 @@ func (srv *Server) ListenAndServe() error {
 	}
 	switch srv.Net {
 	case "tcp", "tcp4", "tcp6":
-		a, e := net.ResolveTCPAddr(srv.Net, addr)
+		l, e := reuseport.NewReusableTCPListener(srv.Net, addr)
 		if e != nil {
 			return e
-		}
-		l, e := net.ListenTCP(srv.Net, a)
-		if e != nil {
-			return e
-		}
-		if srv.ReusePort {
-			file, e := l.File()
-			if e != nil {
-				return e
-			}
-			if e := syscall.SetsockoptInt(int(file.Fd()), syscall.SOL_SOCKET, reusePortFlag, 1); e != nil {
-				return e
-			}
 		}
 		srv.Listener = l
 		srv.lock.Unlock()
 		return srv.serveTCP(l)
 	case "udp", "udp4", "udp6":
-		a, e := net.ResolveUDPAddr(srv.Net, addr)
+		l, e := reuseport.NewReusableUDPConn(srv.Net, addr)
 		if e != nil {
 			return e
-		}
-		l, e := net.ListenUDP(srv.Net, a)
-		if e != nil {
-			return e
-		}
-		if e := setUDPSocketOptions(l); e != nil {
-			return e
-		}
-		if srv.ReusePort {
-			file, e := l.File()
-			if e != nil {
-				return e
-			}
-			if e := syscall.SetsockoptInt(int(file.Fd()), syscall.SOL_SOCKET, reusePortFlag, 1); e != nil {
-				return e
-			}
 		}
 		srv.PacketConn = l
 		srv.lock.Unlock()
